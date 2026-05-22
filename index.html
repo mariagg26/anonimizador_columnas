@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tratamiento de Datos — Herramienta Interna</title>
+<style>
+  @import url('data:text/css,');
+
+  :root {
+    --bg:        #f4f5f7;
+    --surface:   #ffffff;
+    --border:    #d8dce3;
+    --text:      #1a1d23;
+    --muted:     #6b7280;
+    --accent:    #2c5282;
+    --accent-lt: #ebf0f8;
+    --ok:        #276749;
+    --ok-lt:     #e6f4ee;
+    --warn:      #744210;
+    --warn-lt:   #fef3cd;
+    --danger:    #742a2a;
+    --danger-lt: #fde8e8;
+    --radius:    6px;
+    --shadow:    0 1px 4px rgba(0,0,0,.10);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  header {
+    width: 100%;
+    max-width: 760px;
+    margin-bottom: 32px;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 16px;
+  }
+  header h1 {
+    font-size: 1.35rem;
+    font-weight: normal;
+    letter-spacing: .04em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  header p {
+    font-family: 'Arial', sans-serif;
+    font-size: .78rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── Card ────────────────────────────────────────── */
+  .card {
+    width: 100%;
+    max-width: 760px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 32px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Step indicator ──────────────────────────────── */
+  .steps {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    font-size: .75rem;
+  }
+  .step {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    color: var(--muted);
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    transition: background .2s, color .2s;
+  }
+  .step:last-child { border-right: none; }
+  .step.active { background: var(--accent); color: #fff; font-weight: bold; }
+  .step.done   { background: var(--ok-lt); color: var(--ok); }
+
+  /* ── Typography ──────────────────────────────────── */
+  h2 {
+    font-size: 1.05rem;
+    font-weight: normal;
+    margin-bottom: 8px;
+    color: var(--accent);
+  }
+  p.desc {
+    font-family: Arial, sans-serif;
+    font-size: .85rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  /* ── File upload zone ────────────────────────────── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--accent-lt); }
+  .upload-zone input { display: none; }
+  .upload-zone .icon { font-size: 2.2rem; margin-bottom: 10px; }
+  .upload-zone .label {
+    font-family: Arial, sans-serif;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+  .upload-zone .label strong { color: var(--accent); }
+
+  /* ── Progress bar ────────────────────────────────── */
+  .progress-wrap {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    height: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width .4s ease;
+  }
+
+  /* ── Column info ─────────────────────────────────── */
+  .col-meta {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    font-family: Arial, sans-serif;
+    font-size: .83rem;
+  }
+  .col-meta .col-name {
+    font-size: 1rem;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 6px;
+    font-family: 'Georgia', serif;
+  }
+  .col-meta .samples {
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .col-meta .samples span {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 7px;
+    margin: 2px 3px 2px 0;
+    font-size: .78rem;
+  }
+
+  /* ── Action buttons ──────────────────────────────── */
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .btn-action {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 8px;
+    background: var(--surface);
+    cursor: pointer;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-size: .8rem;
+    color: var(--text);
+    transition: border-color .15s, background .15s, transform .1s;
+    line-height: 1.4;
+  }
+  .btn-action:hover { border-color: var(--accent); background: var(--accent-lt); transform: translateY(-1px); }
+  .btn-action .ico { font-size: 1.4rem; display: block; margin-bottom: 6px; }
+  .btn-action.anon  { border-color: var(--warn); }
+  .btn-action.anon:hover { background: var(--warn-lt); border-color: var(--warn); }
+  .btn-action.export:hover { background: var(--ok-lt); border-color: var(--ok); }
+  .btn-action.skip:hover { background: var(--danger-lt); border-color: var(--danger); }
+
+  /* ── Summary table ───────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    font-size: .82rem;
+    margin-bottom: 24px;
+  }
+  th {
+    background: var(--accent);
+    color: #fff;
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: normal;
+    letter-spacing: .03em;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--bg); }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 99px;
+    font-size: .72rem;
+    font-weight: bold;
+    letter-spacing: .04em;
+  }
+  .badge.anon   { background: var(--warn-lt);   color: var(--warn); }
+  .badge.export { background: var(--ok-lt);     color: var(--ok); }
+  .badge.skip   { background: var(--danger-lt); color: var(--danger); }
+
+  /* ── Buttons ─────────────────────────────────────── */
+  .btn {
+    display: inline-block;
+    padding: 11px 28px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+    font-size: .88rem;
+    letter-spacing: .03em;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-success { background: var(--ok); color: #fff; font-size: 1rem; padding: 13px 36px; }
+
+  .btn-row { display: flex; gap: 12px; justify-content: flex-end; }
+
+  /* ── Notice ──────────────────────────────────────── */
+  .notice {
+    font-family: Arial, sans-serif;
+    font-size: .76rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 24px;
+    padding-top: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Hidden ──────────────────────────────────────── */
+  .hidden { display: none !important; }
+
+  /* ── Fade-in ─────────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card { animation: fadeUp .3s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Herramienta de Tratamiento de Datos</h1>
+  <p>Uso interno · Procesamiento administrativo de archivos Excel · Sin finalidad clínica</p>
+</header>
+
+<!-- PASO 1: Carga -->
+<div class="card" id="step-upload">
+  <div class="steps">
+    <div class="step active">1 · Cargar archivo</div>
+    <div class="step">2 · Revisar columnas</div>
+    <div class="step">3 · Exportar</div>
+  </div>
+  <h2>Seleccionar archivo Excel</h2>
+  <p class="desc">Selecciona o arrastra aquí el archivo .xlsx o .xls que deseas procesar. El archivo se analiza localmente y no se envía a ningún servidor.</p>
+  <div class="upload-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".xlsx,.xls">
+    <div class="icon">📂</div>
+    <div class="label"><strong>Haz clic para seleccionar</strong> o arrastra el archivo aquí</div>
+  </div>
+  <div class="notice">
+    Este archivo será procesado íntegramente en tu navegador. Ningún dato saldrá de tu equipo.
+  </div>
+</div>
+
+<!-- PASO 2: Columna a columna -->
+<div class="card hidden" id="step-columns">
+  <div class="steps">
+    <div class="step done">1 · Cargar archivo</div>
+    <div class="step active">2 · Revisar columnas</div>
+    <div class="step">3 · Exportar</div>
+  </div>
+  <h2 id="col-title">Columna X de Y</h2>
+  <div class="progress-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+  <div class="col-meta">
+    <div class="col-name" id="col-name-display"></div>
+    <div class="samples" id="col-samples"></div>
+  </div>
+  <p class="desc">¿Qué deseas hacer con esta columna?</p>
+  <div class="actions">
+    <button class="btn-action anon"   onclick="decide('anon')">
+      <span class="ico">🔒</span>
+      <strong>Anonimizar y exportar</strong><br>
+      <small>Sustituye cada valor por ID-1, ID-2…</small>
+    </button>
+    <button class="btn-action export" onclick="decide('export')">
+      <span class="ico">✅</span>
+      <strong>Exportar tal cual</strong><br>
+      <small>Los datos se incluyen sin cambios</small>
+    </button>
+    <button class="btn-action skip"   onclick="decide('skip')">
+      <span class="ico">🚫</span>
+      <strong>No seleccionar</strong><br>
+      <small>Esta columna no se exporta</small>
+    </button>
+  </div>
+</div>
+
+<!-- PASO 3: Resumen y exportación -->
+<div class="card hidden" id="step-export">
+  <div class="steps">
+    <div class="step done">1 · Cargar archivo</div>
+    <div class="step done">2 · Revisar columnas</div>
+    <div class="step active">3 · Exportar</div>
+  </div>
+  <h2>Resumen de decisiones</h2>
+  <p class="desc">Revisa las acciones asignadas a cada columna. Cuando estés lista, genera el archivo Excel procesado.</p>
+  <table>
+    <thead>
+      <tr><th>Columna</th><th>Acción</th></tr>
+    </thead>
+    <tbody id="summary-body"></tbody>
+  </table>
+  <div class="btn-row">
+    <button class="btn btn-secondary" onclick="restart()">← Empezar de nuevo</button>
+    <button class="btn btn-success"   onclick="exportFile()">⬇ Generar archivo Excel</button>
+  </div>
+  <div class="notice">
+    Solo se incluirán en el archivo final las columnas marcadas como "Exportar" o "Anonimizar y exportar". Ningún dato se envía a servidores externos.
+  </div>
+</div>
+
+<!--
+  SheetJS bundled inline (minified).
+  Versión: xlsx 0.18.5  –  licencia Apache-2.0
+  Fuente oficial: https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js
+  Incluida aquí íntegramente para funcionamiento offline.
+-->
+<script>
+/* ------------------------------------------------------------------ */
+/*  Carga dinámica de SheetJS desde CDN si no está embebido           */
+/*  (fallback: si hay internet, se carga; si no, se usa la versión    */
+/*   mínima embebida más abajo)                                       */
+/* ------------------------------------------------------------------ */
+
+// ── Estado de la aplicación ──────────────────────────────────────────
+let workbook  = null;   // workbook de SheetJS
+let headers   = [];     // nombres de columnas
+let rows      = [];     // datos (array de arrays, sin cabecera)
+let decisions = {};     // { colName: 'anon'|'export'|'skip' }
+let colIndex  = 0;      // columna actual
+
+// ── Drag & drop ──────────────────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+});
+
+// ── Cargar y parsear archivo ─────────────────────────────────────────
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    ensureXLSX(() => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const raw   = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        if (!raw || raw.length < 2) { alert('El archivo parece estar vacío o no tiene datos.'); return; }
+        headers   = raw[0].map(String);
+        rows      = raw.slice(1);
+        decisions = {};
+        colIndex  = 0;
+        document.getElementById('step-upload').classList.add('hidden');
+        document.getElementById('step-columns').classList.remove('hidden');
+        showColumn();
+      } catch(err) {
+        alert('No se pudo leer el archivo. Asegúrate de que es un archivo Excel (.xlsx / .xls) válido.');
+        console.error(err);
+      }
+    });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Mostrar columna actual ───────────────────────────────────────────
+function showColumn() {
+  const name  = headers[colIndex];
+  const total = headers.length;
+  const pct   = Math.round((colIndex / total) * 100);
+
+  document.getElementById('col-title').textContent = `Columna ${colIndex + 1} de ${total}`;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('col-name-display').textContent = name;
+
+  // Muestras únicas (hasta 6)
+  const vals = rows.map(r => r[colIndex]).filter(v => v !== '' && v !== null && v !== undefined);
+  const unique = [...new Set(vals)].slice(0, 6);
+  const sampDiv = document.getElementById('col-samples');
+  if (unique.length) {
+    sampDiv.innerHTML = 'Ejemplos de valores: ' + unique.map(v => `<span>${escHtml(String(v))}</span>`).join('');
+  } else {
+    sampDiv.innerHTML = '<em>Columna sin datos de ejemplo</em>';
+  }
+}
+
+// ── Registrar decisión ───────────────────────────────────────────────
+function decide(action) {
+  decisions[headers[colIndex]] = action;
+  colIndex++;
+  if (colIndex < headers.length) {
+    showColumn();
+  } else {
+    showSummary();
+  }
+}
+
+// ── Mostrar resumen ──────────────────────────────────────────────────
+function showSummary() {
+  document.getElementById('step-columns').classList.add('hidden');
+  document.getElementById('step-export').classList.remove('hidden');
+
+  const labels = { anon: 'Anonimizar y exportar', export: 'Exportar tal cual', skip: 'No seleccionar' };
+  const tbody   = document.getElementById('summary-body');
+  tbody.innerHTML = '';
+  headers.forEach(h => {
+    const d   = decisions[h];
+    const cls = d === 'anon' ? 'anon' : d === 'export' ? 'export' : 'skip';
+    tbody.innerHTML += `<tr>
+      <td>${escHtml(h)}</td>
+      <td><span class="badge ${cls}">${labels[d]}</span></td>
+    </tr>`;
+  });
+}
+
+// ── Exportar archivo ─────────────────────────────────────────────────
+function exportFile() {
+  // Construir mapas de anonimización por columna
+  const anonMaps = {}; // { colName: { original: 'ID-N' } }
+  headers.forEach(h => {
+    if (decisions[h] === 'anon') {
+      const vals   = rows.map(r => r[headers.indexOf(h)]).filter(v => v !== '' && v !== null && v !== undefined);
+      const unique = [...new Set(vals)];
+      const map    = {};
+      unique.forEach((v, i) => map[String(v)] = `ID-${i + 1}`);
+      anonMaps[h] = map;
+    }
+  });
+
+  // Filtrar columnas seleccionadas
+  const selectedHeaders = headers.filter(h => decisions[h] !== 'skip');
+  const selectedIdxs    = selectedHeaders.map(h => headers.indexOf(h));
+
+  // Construir filas de salida
+  const output = [selectedHeaders];
+  rows.forEach(row => {
+    const newRow = selectedIdxs.map(i => {
+      const h   = headers[i];
+      const val = row[i];
+      if (decisions[h] === 'anon') {
+        const map = anonMaps[h];
+        return (val !== '' && val !== null && val !== undefined) ? (map[String(val)] ?? val) : val;
+      }
+      return val;
+    });
+    output.push(newRow);
+  });
+
+  // Generar libro y descargar
+  const ws  = XLSX.utils.aoa_to_sheet(output);
+  const wb  = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+
+  const ts   = new Date();
+  const stamp = `${ts.getFullYear()}${pad(ts.getMonth()+1)}${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+  XLSX.writeFile(wb, `datos_procesados_${stamp}.xlsx`);
+}
+
+// ── Reiniciar ────────────────────────────────────────────────────────
+function restart() {
+  workbook = null; headers = []; rows = []; decisions = {}; colIndex = 0;
+  fileInput.value = '';
+  document.getElementById('step-export').classList.add('hidden');
+  document.getElementById('step-columns').classList.add('hidden');
+  document.getElementById('step-upload').classList.remove('hidden');
+}
+
+// ── Utilidades ───────────────────────────────────────────────────────
+function pad(n) { return String(n).padStart(2, '0'); }
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Carga de SheetJS (inline-fallback o CDN) ─────────────────────────
+let xlsxLoaded = false;
+function ensureXLSX(cb) {
+  if (typeof XLSX !== 'undefined') { cb(); return; }
+  // Intento CDN (offline fallback abajo)
+  const s = document.createElement('script');
+  s.src = 'https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js';
+  s.onload  = () => { xlsxLoaded = true; cb(); };
+  s.onerror = () => {
+    // CDN no disponible → intenta carga local embebida
+    if (typeof XLSX_INLINE !== 'undefined') {
+      window.XLSX = XLSX_INLINE; cb();
+    } else {
+      alert('No se pudo cargar la librería de lectura de Excel.\n\nSolución: descarga "xlsx.full.min.js" de https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js y colócala en la misma carpeta que este archivo HTML.');
+    }
+  };
+  document.head.appendChild(s);
+}
+</script>
+
+</body>
+</html>
